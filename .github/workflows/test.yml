@@ -14,8 +14,8 @@ jobs:
       with:
         ruby-version: 2.5
 
-    - name: Test Part1
+    - name: Test Part One
       run: ./part1.rb
 
-    - name: Test Part2
+    - name: Test Part Two
       run: ./part2.rb
