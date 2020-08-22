@@ -83,7 +83,7 @@ def assign_rooms(bookings, num_of_rooms)
         end
       end
 
-      raise ValidationError.new("sorry, rooms are fully booked") unless booking[:success]
+      raise ValidationError.new('sorry, rooms are fully booked') unless booking[:success]
     rescue ValidationError => e
       puts "#{__method__} booking #{booking} : #{e}"
     rescue => e
