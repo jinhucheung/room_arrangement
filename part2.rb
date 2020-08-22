@@ -1,7 +1,14 @@
 #!/bin/env ruby
 #frozen_string_literal: true
 
+# 解题思路:
+# 1. 根据入住时间从早到晚排序预约
+# 2. 优先安排已固定房间的预约，若固定房间已被先预约了，则提醒客人是否更换预约房间
+# 3. 对无固定房间的预约，尝试为其安排在入住时间比他退房时间晚的房间预约单前，否则安排他到退房时间比他入住时间早的预约后
+
 require 'date'
+
+ValidationError = Class.new(StandardError)
 
 rooms = [
   {
@@ -76,44 +83,63 @@ def format_bookings(bookings)
   end
 end
 
-def assign_rooms(bookings, rooms)
-  formatted_rooms = rooms.inject({}) do |result, room|
+def format_rooms(rooms)
+  rooms.inject({}) do |result, room|
     result[room[:id]] = room.merge(bookings: [])
     result
   end
+end
 
+def get_bookings_of_rooms(formatted_rooms)
+  formatted_rooms.inject([]) do |result, (room_id, room)|
+    result.push(room[:bookings])
+    result
+  end
+end
+
+def assign_rooms(bookings, rooms)
+  formatted_rooms = format_rooms(rooms)
   formatted_bookings = format_bookings(bookings)
 
-  get_last_booking_of_room = ->(room) { formatted_bookings[room[:bookings].last] }
+  locked_bookings, unlocked_bookings = formatted_bookings.partition {|_, bookings| bookings[:locked]}
+  partitioned_bookings = locked_bookings + unlocked_bookings
 
-  formatted_bookings.each do |booking_id, booking|
+  partitioned_bookings.each do |booking_id, booking|
     begin
-      raise 'checkin or checkout is invalid' if booking[:checkin_date].nil? || booking[:checkout_date].nil?
+      raise ValidationError.new('checkin or checkout is invalid') if booking[:checkin_date].nil? || booking[:checkout_date].nil?
 
-      booking_room = formatted_rooms[booking[:room_id]] if booking[:locked]
-      last_booking = get_last_booking_of_room.call(booking_room) if booking_room
-
-      if booking_room && (last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date])
-        booking_room[:bookings].push(booking_id)
-      else
-        formatted_rooms.each do |_, room|
-          last_booking = get_last_booking_of_room.call(room)
-
-          if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
-            room[:bookings].push(booking_id)
-            break
-          end
+      locked_room = formatted_rooms[booking[:room_id]] if booking[:locked]
+      if locked_room
+        last_booking = formatted_bookings[locked_room[:bookings].last]
+        if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
+          locked_room[:bookings].push(booking_id)
+          next
+        else
+          raise ValidationError.new("the room #{locked_room[:name]} has been booking, please change")
         end
       end
+
+      formatted_rooms.each do |_, room|
+        first_booking = formatted_bookings[room[:bookings].first]
+        if first_booking.nil? || booking[:checkout_date] <= first_booking[:checkin_date]
+          room[:bookings].unshift(booking_id)
+          break
+        end
+
+        last_booking = formatted_bookings[room[:bookings].last]
+        if booking[:checkin_date] >= last_booking[:checkout_date]
+          room[:bookings].push(booking_id)
+          break
+        end
+      end
+    rescue ValidationError => e
+      puts "#{__method__} booking #{booking} : #{e}"
     rescue => e
       puts "#{__method__} booking #{booking} raise: #{e}"
     end
   end
 
-  formatted_rooms.inject([]) do |result, (room_id, room)|
-    result.push(room[:bookings])
-    result
-  end
+  get_bookings_of_rooms(formatted_rooms)
 end
 
 result = assign_rooms(bookings, rooms)

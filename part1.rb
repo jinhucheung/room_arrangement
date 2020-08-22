@@ -1,6 +1,10 @@
 #!/bin/env ruby
 #frozen_string_literal: true
 
+# 解题思路:
+# 1. 根据入住时间从早到晚排序预约
+# 2. 尝试将一个预约安排到一个房间里，若房间已安排最晚预约的退房时间早于该待安排预约的入住时间，则安排到此房间，否则尝试安排到下个房间
+
 require 'date'
 
 bookings = [
