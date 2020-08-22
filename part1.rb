@@ -70,6 +70,5 @@ def assign_rooms(bookings, num_of_rooms)
 end
 
 num_of_rooms = 3
-p format_bookings(bookings)
 result = assign_rooms(bookings, num_of_rooms)
 p result
