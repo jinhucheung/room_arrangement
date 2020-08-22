@@ -60,32 +60,61 @@ bookings = [
   }
 ]
 
-def assign_rooms(bookings, num_of_rooms)
-  assigned_rooms = Array.new(num_of_rooms.to_i) { Array.new }
-  booking_id_of_assigned_rooms = Array.new(num_of_rooms.to_i) { Array.new }
+def format_bookings(bookings)
+  bookings_with_date = bookings.map do |booking|
+    booking.merge(
+      checkin_date: (Date.parse(booking[:checkin]) rescue nil),
+      checkout_date: (Date.parse(booking[:checkout]) rescue nil)
+    )
+  end
 
-  if bookings
-    bookings_sort_by_checkin = bookings.sort_by {|booking| Date.parse(booking[:checkin]).to_time.to_i rescue Date::Infinity.new}
+  bookings_sort_checkin = bookings_with_date.sort_by {|booking| booking[:checkin_date] ? booking[:checkin_date].to_time.to_i : Date::Infinity.new}
 
-    bookings_sort_by_checkin.each do |booking|
-      begin
-        assigned_rooms.each_with_index do |room, index|
-          last_booking = room.last
-          if last_booking.nil? || Date.parse(booking[:checkin]) >= Date.parse(last_booking[:checkout])
-            room.push(booking)
-            booking_id_of_assigned_rooms[index].push(booking[:id])
+  bookings_sort_checkin.inject({}) do |result, booking|
+    result[booking[:id]] = booking
+    result
+  end
+end
+
+def assign_rooms(bookings, rooms)
+  formatted_rooms = rooms.inject({}) do |result, room|
+    result[room[:id]] = room.merge(bookings: [])
+    result
+  end
+
+  formatted_bookings = format_bookings(bookings)
+
+  get_last_booking_of_room = ->(room) { formatted_bookings[room[:bookings].last] }
+
+  formatted_bookings.each do |booking_id, booking|
+    begin
+      raise 'checkin or checkout is invalid' if booking[:checkin_date].nil? || booking[:checkout_date].nil?
+
+      booking_room = formatted_rooms[booking[:room_id]] if booking[:locked]
+      last_booking = get_last_booking_of_room.call(booking_room) if booking_room
+
+      if booking_room && (last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date])
+        booking_room[:bookings].push(booking_id)
+      else
+        formatted_rooms.each do |_, room|
+          last_booking = get_last_booking_of_room.call(room)
+
+          if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
+            room[:bookings].push(booking_id)
             break
           end
         end
-      rescue => e
-        puts "#{__method__} booking #{booking} raise: #{e}"
       end
+    rescue => e
+      puts "#{__method__} booking #{booking} raise: #{e}"
     end
   end
 
-  booking_id_of_assigned_rooms
+  formatted_rooms.inject([]) do |result, (room_id, room)|
+    result.push(room[:bookings])
+    result
+  end
 end
 
-num_of_rooms = 3
-result = assign_rooms(bookings, num_of_rooms)
+result = assign_rooms(bookings, rooms)
 p result

@@ -60,26 +60,23 @@ def format_bookings(bookings)
 end
 
 def assign_rooms(bookings, num_of_rooms)
-  assigned_rooms = Array.new(num_of_rooms.to_i) {Array.new}
+  assigned_rooms = Array.new(num_of_rooms) {Array.new}
 
-  if bookings
-    formatted_bookings = format_bookings(bookings)
+  formatted_bookings = format_bookings(bookings)
+  formatted_bookings.each do |booking_id, booking|
+    begin
+      raise 'checkin or checkout is invalid' if booking[:checkin_date].nil? || booking[:checkout_date].nil?
 
-    formatted_bookings.each do |booking_id, booking|
-      begin
-        raise 'checkin or checkout is invalid' if booking[:checkin_date].nil? || booking[:checkout_date].nil?
+      assigned_rooms.each do |room|
+        last_booking = formatted_bookings[room.last]
 
-        assigned_rooms.each do |room|
-          last_booking = formatted_bookings[room.last]
-
-          if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
-            room.push(booking_id)
-            break
-          end
+        if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
+          room.push(booking_id)
+          break
         end
-      rescue => e
-        puts "#{__method__} booking #{booking} raise: #{e}"
       end
+    rescue => e
+      puts "#{__method__} booking #{booking} raise: #{e}"
     end
   end
 
