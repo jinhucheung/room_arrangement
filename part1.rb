@@ -43,20 +43,37 @@ bookings = [
   }
 ]
 
+def format_bookings(bookings)
+  bookings_with_date = bookings.map do |booking|
+    booking.merge(
+      checkin_date: (Date.parse(booking[:checkin]) rescue nil),
+      checkout_date: (Date.parse(booking[:checkout]) rescue nil)
+    )
+  end
+
+  bookings_sort_checkin = bookings_with_date.sort_by {|booking| booking[:checkin_date] ? booking[:checkin_date].to_time.to_i : Date::Infinity.new}
+
+  bookings_sort_checkin.inject({}) do |result, booking|
+    result[booking[:id]] = booking
+    result
+  end
+end
+
 def assign_rooms(bookings, num_of_rooms)
-  assigned_rooms = Array.new(num_of_rooms.to_i) { Array.new }
-  booking_id_of_assigned_rooms = Array.new(num_of_rooms.to_i) { Array.new }
+  assigned_rooms = Array.new(num_of_rooms.to_i) {Array.new}
 
   if bookings
-    bookings_sort_by_checkin = bookings.sort_by {|booking| Date.parse(booking[:checkin]).to_time.to_i rescue Date::Infinity.new}
+    formatted_bookings = format_bookings(bookings)
 
-    bookings_sort_by_checkin.each do |booking|
+    formatted_bookings.each do |booking_id, booking|
       begin
-        assigned_rooms.each_with_index do |room, index|
-          last_booking = room.last
-          if last_booking.nil? || Date.parse(booking[:checkin]) >= Date.parse(last_booking[:checkout])
-            room.push(booking)
-            booking_id_of_assigned_rooms[index].push(booking[:id])
+        raise 'checkin or checkout is invalid' if booking[:checkin_date].nil? || booking[:checkout_date].nil?
+
+        assigned_rooms.each do |room|
+          last_booking = formatted_bookings[room.last]
+
+          if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
+            room.push(booking_id)
             break
           end
         end
@@ -66,7 +83,7 @@ def assign_rooms(bookings, num_of_rooms)
     end
   end
 
-  booking_id_of_assigned_rooms
+  assigned_rooms
 end
 
 num_of_rooms = 3
