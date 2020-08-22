@@ -7,6 +7,8 @@
 
 require 'date'
 
+ValidationError = Class.new(StandardError)
+
 bookings = [
   {
     checkin: '2017-10-1',
@@ -69,16 +71,21 @@ def assign_rooms(bookings, num_of_rooms)
   formatted_bookings = format_bookings(bookings)
   formatted_bookings.each do |booking_id, booking|
     begin
-      raise 'checkin or checkout is invalid' if booking[:checkin_date].nil? || booking[:checkout_date].nil?
+      raise ValidationError.new('checkin or checkout is invalid') if booking[:checkin_date].nil? || booking[:checkout_date].nil?
 
       assigned_rooms.each do |room|
         last_booking = formatted_bookings[room.last]
 
         if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
+          booking[:success] = true
           room.push(booking_id)
           break
         end
       end
+
+      raise ValidationError.new("sorry, rooms are fully booked") unless booking[:success]
+    rescue ValidationError => e
+      puts "#{__method__} booking #{booking} : #{e}"
     rescue => e
       puts "#{__method__} booking #{booking} raise: #{e}"
     end

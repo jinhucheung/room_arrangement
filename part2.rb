@@ -112,26 +112,31 @@ def assign_rooms(bookings, rooms)
       if locked_room
         last_booking = formatted_bookings[locked_room[:bookings].last]
         if last_booking.nil? || booking[:checkin_date] >= last_booking[:checkout_date]
+          booking[:success] = true
           locked_room[:bookings].push(booking_id)
           next
         else
-          raise ValidationError.new("the room #{locked_room[:name]} has been booking, please change")
+          raise ValidationError.new("the room #{locked_room[:name]} has been booked, please change")
         end
       end
 
       formatted_rooms.each do |_, room|
         first_booking = formatted_bookings[room[:bookings].first]
         if first_booking.nil? || booking[:checkout_date] <= first_booking[:checkin_date]
+          booking[:success] = true
           room[:bookings].unshift(booking_id)
           break
         end
 
         last_booking = formatted_bookings[room[:bookings].last]
         if booking[:checkin_date] >= last_booking[:checkout_date]
+          booking[:success] = true
           room[:bookings].push(booking_id)
           break
         end
       end
+
+      raise ValidationError.new("sorry, rooms are fully booked") unless booking[:success]
     rescue ValidationError => e
       puts "#{__method__} booking #{booking} : #{e}"
     rescue => e
